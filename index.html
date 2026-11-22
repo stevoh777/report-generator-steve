@@ -56,7 +56,7 @@ classes:['Grade 7','Grade 8','Grade 9'],learners:[],marks:{}};
 let S=JSON.parse(localStorage.getItem('srs')||'null')||DEF;
 const save=()=>localStorage.setItem('srs',JSON.stringify(S));
 const $=id=>document.getElementById(id);
-let V={tab:'marks',c:S.classes[0],t:1,e:1,lid:null};
+let V={tab:S.learners.length?'marks':'learners',c:S.classes[0],t:1,e:1,lid:null};
 
 /* ---------- CALCULATIONS ---------- */
 const avg=a=>{a=a.filter(x=>x!=null);return a.length?a.reduce((p,c)=>p+c,0)/a.length:null};
@@ -126,10 +126,11 @@ setup:()=>`<div class="box"><h2>School settings</h2>
 <label style="display:inline-flex;margin-left:8px">Restore backup<input type="file" accept=".json" onchange="impo(this)"></label>
 <button class="b x" style="margin-left:8px" onclick="if(confirm('Delete ALL data?')){localStorage.removeItem('srs');location.reload()}">Erase all data</button></div>`,
 
-learners:()=>`<div class="box"><h2>Add learners</h2>
-<div class="bar">${cSel()}</div>
+learners:()=>`<div class="box"><h2>Add learners</h2>${V.msg?`<p class="up"><b>${V.msg}</b></p>`:''}
+<div class="bar">${cSel()}<label>Full name<input id="ln" size="26" placeholder="e.g. Amina Hassan" onkeydown="if(event.key==='Enter')addOne()"></label><label>Admission No<input id="la" size="10" placeholder="optional" onkeydown="if(event.key==='Enter')addOne()"></label><button class="b" onclick="addOne()">Add learner to ${V.c}</button></div>
+<h3>Or add many at once</h3>
 <label>One learner per line: Name, Admission No (number is optional)<textarea id="bl" placeholder="Amina Hassan, 1021&#10;Brian Otieno, 1022"></textarea></label><br>
-<button class="b" onclick="addL()">Add to ${V.c}</button>
+<button class="b" onclick="addL()">Add all to ${V.c}</button>
 <button class="b o" style="margin-left:8px" onclick="fillSample()">Fill sample marks for all learners</button>
 <p class="mut">Add a few learners of your own, then use the second button to generate random marks for all terms and see the reports.</p></div>
 <div class="box"><h2>${V.c}: ${cls(V.c).length} learners</h2><div class="sc"><table><tr><th>#</th><th class="l">Name</th><th>Adm No</th><th>Class</th><th></th></tr>
@@ -139,7 +140,7 @@ marks:()=>{const L=cls(V.c),k=V.t+'-'+V.e;return`<div class="box"><h2>Enter mark
 <div class="bar">${cSel()}<label>Term${sel('t',V.t,[1,2,3].map(t=>[t,'Term '+t]))}</label><label>Exam${sel('e',V.e,[1,2,3].map(e=>[e,'Exam '+e]))}</label></div>
 <p class="mut">Marks save automatically. Leave blank if the learner missed the exam.</p>
 <div class="sc"><table><tr><th>#</th><th class="l">Learner</th>${S.subjects.map(s=>`<th>${s}</th>`).join('')}</tr>
-${L.map((l,i)=>`<tr><td>${i+1}</td><td class="l">${l.name}</td>${S.subjects.map((_,s)=>{const m=S.marks[l.id]&&S.marks[l.id][k];return`<td><input type="number" min="0" max="100" value="${m&&m[s]!=null?m[s]:''}" oninput="setM('${l.id}',${s},this.value)"></td>`}).join('')}</tr>`).join('')||`<tr><td colspan="${S.subjects.length+2}">No learners in ${V.c}. Add them under Learners.</td></tr>`}</table></div></div>`},
+${L.map((l,i)=>`<tr><td>${i+1}</td><td class="l">${l.name}</td>${S.subjects.map((_,s)=>{const m=S.marks[l.id]&&S.marks[l.id][k];return`<td><input type="number" min="0" max="100" value="${m&&m[s]!=null?m[s]:''}" oninput="setM('${l.id}',${s},this.value)"></td>`}).join('')}</tr>`).join('')||`<tr><td colspan="${S.subjects.length+2}">No learners in ${V.c} yet. <button class="b" onclick="tab('learners')">Add learners now</button></td></tr>`}</table></div></div>`},
 
 class:()=>{const{R,sm,mean}=cst(V.c,V.t),[b,w]=best(sm);
 return`<div class="bar np">${cSel()}${tSel()}<button class="b o" onclick="print()">Print</button></div>
@@ -188,9 +189,14 @@ const tabs=[['marks','Enter Marks'],['class','Class Results'],['learner','Learne
 /* ---------- ACTIONS ---------- */
 const sel2=l=>`<select onchange="mv('${l.id}',this.value)">${S.classes.map(c=>`<option${c===l.cls?' selected':''}>${c}</option>`).join('')}</select>`;
 function go(k,v){V[k]=(k==='t'&&v!=='Y'||k==='e')?+v:v;if(k==='c')V.lid=null;render()}
-function tab(t){V.tab=t;render()}
+function tab(t){V.tab=t;V.msg='';render()}
 function setM(id,s,v){const k=V.t+'-'+V.e,m=(S.marks[id]=S.marks[id]||{});const a=(m[k]=m[k]||Array(S.subjects.length).fill(null));a[s]=v===''?null:Math.max(0,Math.min(100,+v));save()}
-function addL(){const lines=$('bl').value.split('\n').map(x=>x.trim()).filter(Boolean);lines.forEach(x=>{const p=x.split(',');S.learners.push({id:'L'+Date.now()+Math.random().toString(36).slice(2,6),name:p[0].trim(),adm:(p[1]||'').trim(),cls:V.c})});save();render()}
+function addOne(){const n=$('ln').value.trim();if(!n)return alert("Type the learner's name first.");
+S.learners.push({id:'L'+Date.now()+Math.random().toString(36).slice(2,6),name:n,adm:$('la').value.trim(),cls:V.c});save();
+$('ln').value='';$('la').value='';V.msg=n+' added to '+V.c+'.';render();$('ln').focus()}
+function addL(){const lines=$('bl').value.split('\n').map(x=>x.trim()).filter(Boolean);if(!lines.length)return alert('Type at least one name first.');
+lines.forEach(x=>{const p=x.split(',');S.learners.push({id:'L'+Date.now()+Math.random().toString(36).slice(2,6),name:p[0].trim(),adm:(p[1]||'').trim(),cls:V.c})});
+save();$('bl').value='';V.msg=lines.length+' learner(s) added to '+V.c+'.';render()}
 function delL(id){if(confirm('Delete this learner and their marks?')){S.learners=S.learners.filter(l=>l.id!==id);delete S.marks[id];save();render()}}
 function mv(id,c){S.learners.find(l=>l.id===id).cls=c;save();render()}
 function saveSetup(){S.school=$('sn').value.trim()||'Junior School';S.year=+$('sy').value;
@@ -208,7 +214,9 @@ function expo(){const a=document.createElement('a');a.href=URL.createObjectURL(n
 function impo(i){const r=new FileReader();r.onload=()=>{try{S=JSON.parse(r.result);save();location.reload()}catch(e){alert('That file is not a valid backup.')}};r.readAsText(i.files[0])}
 function render(){$('hn').textContent=S.school+' Results System';
 $('nav').innerHTML=tabs.map(t=>`<button class="${t[0]===V.tab?'on':''}" onclick="tab('${t[0]}')">${t[1]}</button>`).join('');
-$('app').innerHTML=views[V.tab]()}
+const K=['ln','la','bl'].map(i=>{const e=document.getElementById(i);return e?e.value:null});
+$('app').innerHTML=views[V.tab]();
+['ln','la','bl'].forEach((i,j)=>{const e=document.getElementById(i);if(e&&K[j])e.value=K[j]})}
 render();
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
